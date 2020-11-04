@@ -18,3 +18,7 @@ def dosyayaYaz(filename,strr):
     file.close()
     return 0
   
+def saveResponse(filename,str):
+    f=open(filename,'w')
+    f.write(str)
+    f.close()
