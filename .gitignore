@@ -2,6 +2,9 @@
 # Created by https://www.toptal.com/developers/gitignore/api/python,web,data
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,web,data
 
+### stuff ###
+asd.html
+
 ### Data ###
 *.csv
 *.dat
