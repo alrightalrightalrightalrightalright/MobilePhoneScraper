@@ -5,13 +5,13 @@ def dosyayaYaz(filename,strr):
     try:
         file=open(filename,'r')
     except FileNotFoundError:
-        file = open(filename, 'w', encoding="utf-8")
+        file = open(filename, 'w', encoding="utf8",errors='ignore')
         file.close()
     file=open(filename,'r+')
     wholeFile= file.read()
     if wholeFile.find(strr)==-1:
         file.close()
-        file=open(filename,'a', encoding="utf-8")
+        file=open(filename,'a', encoding="utf8",errors='ignore')
         file.write(strr)
         file.close()
         return 1
