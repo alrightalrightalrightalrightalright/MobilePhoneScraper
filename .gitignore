@@ -3,7 +3,7 @@
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,web,data
 
 ### stuff ###
-asd.html
+*.html
 ekmek.txt
 
 ### Data ###
