@@ -3,7 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 import Sahbndnİlan
 import sys
-
+import _thread
 from io import StringIO
 #utils
 def stdoutToStr(ilan):
@@ -26,13 +26,14 @@ getOffset = lambda pageNumb: "pagingOffset=" + str(pageNumb * 50)  #pagingOffset
 class Scraper:
     #Request kullanımı: host + relative url + ek queries
     baseUrl="https://www.sahibinden.com" #url="https://www.sahibinden.com/cep-telefonu-modeller/ikinci-el?pagingSize=50"
+    listingUrl="/ilan/ikinci-el-ve-sifir-alisveris-cep-telefonu-modeller-"
     requestUrl=""
     headers = { 
         'Accept': '*/*',
         'Host': 'www.sahibinden.com',      
         'Connection': 'keep-alive', 
         'X-Requested-With':'XMLHttpRequest',
-        'User-Agent': 'aMozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36 OPR/71.0.3770.317'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36 OPR/71.0.3770.317'
         }
     
 
@@ -40,6 +41,7 @@ class Scraper:
     def __init__(self):
         s=self.s = requests.Session()
         r=self.r = s.get(self.baseUrl +"/cep-telefonu-modeller/ikinci-el?pagingSize=50"+"&sorting=date_desc",headers=self.headers, timeout=None)
+        self.s.headers=self.headers
         print( 'get: ', r.status_code)
         soup=self.soup = BeautifulSoup(r.text, 'html.parser')
 
@@ -51,6 +53,7 @@ class Scraper:
         listingCount=int(soup.find("div", class_="result-text").find_all("span")[1].text.split()[0].replace(".",""))
         if listingCount<=1000 or len(soup.find("div",id="searchCategoryContainer").find_all("li"))==0 :
             self.scrape(soup,level)
+            #_thread.start_new_thread( self.scrape,(soup,level) )
             return
 
         subCategs=soup.find("div",id="searchCategoryContainer").find_all("li")#phone models
@@ -59,7 +62,6 @@ class Scraper:
             r = self.s.get(self.baseUrl +self.requestUrl ,headers=self.headers, timeout=None)
             print(level*"\t"+ 'crawling: ', phoneModel.text.replace("\n",""), " with url:",phoneModel.a.get("href"))
             soup = BeautifulSoup(r.text, 'html.parser')
-            #thread.start_new_thread( self.crawl,(soup,level+1) )
             self.crawl(soup,level+1)
             print(level*"\t"+ 'crawling done for: ', phoneModel.text.replace("\n",""))
 
@@ -116,15 +118,45 @@ class Scraper:
                 
             file.close()  
 
-    
+    def deepScrape(self,id):
+        r = self.s.get(self.baseUrl+self.listingUrl+id+ "/detay",headers=self.headers, timeout=None)
+        print("page: ",r.status_code)  
+        soup = BeautifulSoup(r.text, 'html.parser')
+        info= soup.find("div",class_="classifiedInfo")
+
+        infoList=info.find("ul",class_="classifiedInfoList").find_all("li")
+        price=info.find("h3").text.split(" ")[17] #HARDCODED. !!!
+        location="".join(info.find("h2").text.split())
+        
+        listingDate=" ".join(infoList[1].span.text.split(" ")[16:])
+        brand=infoList[2].span.text.replace("\xa0","")
+        model=infoList[3].span.text.replace("\xa0","")
+        os=infoList[4].span.text.split("\t")[1]
+        internalMem=infoList[5].text.split("\t")[1].split()[0]
+        screenSize=infoList[6].text.split()[2]
+        ramMem=infoList[7].text.split()[2]#gb#'501 MB - 1 GB\n' wtf
+        camRes=infoList[8].text.split()[1]#mp
+        frontCamRes=infoList[9].text.split()[2]
+        color=infoList[10].text.split()[1]
+        guarantee=" ".join(infoList[11].text.split()[1:])
+        seller=infoList[12].text.split()[1]
+        usedStatus=" ".join(infoList[14].text.split()[1:])
+
+
+        x=2
+        
+
     def lightScrape(self):
         self.crawl(self.soup)
 
 
 
 bepsi=Scraper()
-bepsi.crawl(bepsi.soup)
-
+#bepsi.crawl(bepsi.soup)
+file=open("ekmek.txt","r")
+laynsss=file.readlines()
+for ln in laynsss:
+    bepsi.deepScrape(ln.replace("\n",""))
 
 
 
