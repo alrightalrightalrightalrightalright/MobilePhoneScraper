@@ -28,5 +28,6 @@ class Shbndnİlan:
         .format(self.link, self.fiyat  , self.brand ,self.model, self.os, self.storageCap, self.screenSize,
         self.ramSize, self.cameraRes, self.frontCamRes,  self.color, self.warrantyStatus, self.fromWho,
         self.city,self.town, self.listingDate))
- 
+    def getCSV(self):
+        return ",".join(str(x) for x in(self.link,self.fiyat,self.listingDate,self.listingId,self.brand,self.os,self.storageCap,self.screenSize,self.ramSize,self.cameraRes,self.frontCamRes,self.color,self.warrantyStatus,self.fromWho,self.city,self.town,self.title,self.model))
  

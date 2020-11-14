@@ -5,6 +5,7 @@ import Sahbndnİlan
 import sys
 import _thread
 from io import StringIO
+import Firebase
 #utils
 def stdoutToStr(ilan):
     old_stdout = sys.stdout
@@ -35,6 +36,7 @@ class Scraper:
         'X-Requested-With':'XMLHttpRequest',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36 OPR/71.0.3770.317'
         }
+    frbs=Firebase.Firebase()
     
 
 
@@ -113,7 +115,7 @@ class Scraper:
 
                 ilan= Sahbndnİlan.Shbndnİlan(listingUrl,price,date1+" "+date2,id,brand,model,title=title,city=city,town=town)
                 #ilan.print()
-                
+                self.frbs.AddListing(ilan)
                 file.write(ilan.listingId+"\n")
                 
             file.close()  
@@ -152,7 +154,9 @@ class Scraper:
 
 
 bepsi=Scraper()
-#bepsi.crawl(bepsi.soup)
+bepsi.crawl(bepsi.soup)
+
+
 file=open("ekmek.txt","r")
 laynsss=file.readlines()
 for ln in laynsss:
