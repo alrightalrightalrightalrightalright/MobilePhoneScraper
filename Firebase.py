@@ -14,7 +14,7 @@ class Firebase:
     #set anahtarın değerini yazar ve var olan değerleri siler, anahtar yoksa oluşturur
     #push anahtarı da değerini de yazar ve eşsiz ve kornolojik bir anahtarın altına yazar
     #update sadece istenen anahtarı edğişrweeqweewewrw
-    def __init__(self):
+    def __init__(self): 
         self.cred = credentials.Certificate(self.certfFilePath)
         self.default_app=firebase_admin.initialize_app(self.cred,{"databaseURL":self.dbURL})
         self.ref = db.reference(getDate())#eklemeler burdan
