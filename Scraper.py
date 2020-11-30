@@ -78,7 +78,8 @@ class Scraper:
         self.listingCount=int(soup.find("div", class_="result-text").find_all("span")[1].text.split()[0].replace(".",""))
         
     @backoff.on_exception(backoff.expo,
-                      requests.exceptions.RequestException)
+                      requests.exceptions.RequestException,
+                      requests.exceptions.MissingSchema)
     def crawl(self, soup,level=0):
         """Scrapes whole mobile phone listings in website. So that website has
         multiple categories with sub-categories itself, a recursive scraping method 
@@ -97,6 +98,7 @@ class Scraper:
         for phoneModel in subCategs:
             self.requestUrl=phoneModel.a.get("href")
             r = self.s.get(self.baseUrl +self.requestUrl ,headers=self.headers, timeout=None)
+            if r.status_code == 429: raise requests.exceptions.MissingSchema
             print(level*"\t"+ 'crawling: ', phoneModel.text.replace("\n",""), " with url:",phoneModel.a.get("href"))
             soup = BeautifulSoup(r.text, 'html.parser')
             self.crawl(soup,level+1)
@@ -129,8 +131,8 @@ class Scraper:
                 if e.has_attr("data-id") is not True: continue
                 ilan=self._scrapeListing(soup,e)
                 self.deepScrape(ilan)
-                ilan.print()
-                #self.frbs.AddListing(ilan)
+                #ilan.print()
+                self.frbs.AddListing(ilan)
                 #file.write(ilan.listingId+"\n")
                 file.write(ilan.getCSV()+"\n")
                 
@@ -142,20 +144,31 @@ class Scraper:
         :param id: listing id"""
         r = self.s.get(self.baseUrl+self.listingUrl+ilan.listingId+ "/detay",headers=self.headers, timeout=None)
         print("page: ",r.status_code)  
+        if r.status_code != 200 : return
         soup = BeautifulSoup(r.text, 'html.parser')
         info= soup.find("div",class_="classifiedInfo")
-
+    
         infoList=info.find("ul",class_="classifiedInfoList").find_all("li")
+    
+        #data= {x: -1 for x in self.fields}
+        for inf in infoList:
+            for field in ilan.fields:
+                if inf.text.find(field) == -1 :continue
+                ilan.data[field]=" ".join(inf.text.split("\xa0")[1].split())
+        print(ilan.data)
+        return
+
         ilan.price= info.find("h3").text.split(" ")[17] #HARDCODED. !!!
         ilan.city="".join(info.find("h2").text.split()[0])
-        ilan.town="".join(info.find("h2").text.split()[2])
+        #ilan.town="".join(info.find("h2").text.split()[2])
         ilan.listingDate =" ".join(infoList[1].span.text.split(" ")[16:])
         ilan.brand=infoList[2].span.text.replace("\xa0","")
         ilan.model=infoList[3].span.text.replace("\xa0","")
         ilan.os=infoList[4].span.text.split("\t")[1]
 
         #TODO: fix interval values like 501mb-1gb
-        ilan.internalMem=infoList[5].text.split("\t")[1].split()[0]
+        takozmu = True if infoList[5].text.find("Dahili Hafıza") ==-1 else False
+        ilan.internalMem= infoList[5].text.split("\t")[1].split()[0]
         ilan.screenSize=infoList[6].text.split()[2]
 
         #4 durum: 15gb, 256mb, 510mb- 2 gb, yok
@@ -172,8 +185,6 @@ class Scraper:
         #ilan.usedStatus=" ".join(infoList[14].text.split()[1:]) no need
 
 
-        x=2
-        print(x)
         
 
     def lightScrape(self):
