@@ -17,7 +17,7 @@ class Firebase:
     def __init__(self): 
         self.cred = credentials.Certificate(self.certfFilePath)
         self.default_app=firebase_admin.initialize_app(self.cred,{"databaseURL":self.dbURL})
-        self.ref = db.reference(getDate())#eklemeler burdan
+        self.ref = db.reference("dataset")
     incrCountGlobal= lambda self: db.reference().update({"!Count":1}) if db.reference().child("!Count").get() is None else db.reference().update({"!Count": db.reference().child("!Count").get()+1})
     #increments for that day
     incrCount= lambda self: self.ref.update({"!Count":1}) if self.ref.child("!Count").get() is None else self.ref.update({"!Count":self.ref.child("!Count").get()+1})
@@ -27,3 +27,5 @@ class Firebase:
         self.ref.child(obj.listingId).set(obj.getCSV())
         self.incrCount()
         self.uptLastRun()
+
+    isExists= lambda self, id: False if self.ref.child(id).get() is None else True

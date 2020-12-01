@@ -7,6 +7,7 @@ import _thread
 from io import StringIO
 import Firebase
 import backoff
+import time
 #utils
 def stdoutToStr(ilan):
     old_stdout = sys.stdout
@@ -98,14 +99,15 @@ class Scraper:
         for phoneModel in subCategs:
             self.requestUrl=phoneModel.a.get("href")
             r = self.s.get(self.baseUrl +self.requestUrl ,headers=self.headers, timeout=None)
-            if r.status_code == 429: raise requests.exceptions.MissingSchema
             print(level*"\t"+ 'crawling: ', phoneModel.text.replace("\n",""), " with url:",phoneModel.a.get("href"))
             soup = BeautifulSoup(r.text, 'html.parser')
             self.crawl(soup,level+1)
+            #time.sleep(60)
             print(level*"\t"+ 'crawling done for: ', phoneModel.text.replace("\n",""))
 
 
     def scrape(self, soup,level=0): 
+        #time.sleep(32)
         """Does the scraping job where the webpage has listings.
 
         :param soup: bs4 soup of the webpage to be scraped.
@@ -115,7 +117,7 @@ class Scraper:
         listingCount=int(soup.find("div", class_="result-text").find_all("span")[1].text.split()[0].replace(".",""))
         pageCount= 20 if int(listingCount)//50 >=20 else int(listingCount)//50 #çünkü az ilanlı kategoride sonraki sayfa butonları yok      
         i=0
-        while i<=pageCount:
+        while i<=pageCount:         
             r = self.s.get(self.baseUrl+self.requestUrl+"&" +getOffset(i),headers=self.headers, timeout=None)
             print(level*"\t"+"scraping page: ",str(i)+ "/"+str(pageCount))  
             #FileIO.saveResponse("bepsi.html",r.text)
@@ -130,6 +132,7 @@ class Scraper:
             for e in links:
                 if e.has_attr("data-id") is not True: continue
                 ilan=self._scrapeListing(soup,e)
+                if self.frbs.isExists(ilan.listingId) is True: continue
                 self.deepScrape(ilan)
                 #ilan.print()
                 self.frbs.AddListing(ilan)
@@ -139,12 +142,13 @@ class Scraper:
             file.close()  
 
     def deepScrape(self,ilan):
+        #time.sleep(32)
         """Scrapes a listing form its listing page. it requests the listing with id parameter
         then scrapes its data.
         :param id: listing id"""
         r = self.s.get(self.baseUrl+self.listingUrl+ilan.listingId+ "/detay",headers=self.headers, timeout=None)
         print("page: ",r.status_code)  
-        if r.status_code != 200 : return
+        if r.status_code == 429: raise requests.exceptions.MissingSchema
         soup = BeautifulSoup(r.text, 'html.parser')
         info= soup.find("div",class_="classifiedInfo")
     
