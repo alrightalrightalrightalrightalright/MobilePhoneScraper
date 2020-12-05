@@ -7,6 +7,7 @@ import _thread
 from io import StringIO
 import Firebase
 import backoff
+import random
 import time
 #utils
 def stdoutToStr(ilan):
@@ -20,6 +21,7 @@ def stdoutToStr(ilan):
     sys.stdout = old_stdout
 
     return output
+randWait= lambda : time.sleep( random.randrange(800,2000)/1000)
 
 ### Request Queries ###
 lastXdays = lambda a : "date="+a + "days" # date=30days
@@ -32,11 +34,19 @@ class Scraper:
     listingUrl="/ilan/ikinci-el-ve-sifir-alisveris-cep-telefonu-modeller-"
     requestUrl=""
     headers = { 
-        'Accept': '*/*',
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
         'Host': 'www.sahibinden.com',      
-        'Connection': 'closed', 
+        'Connection': 'keep-alive', 
+        "Upgrade-Insecure-Requests": "1",
         'X-Requested-With':'XMLHttpRequest',
-        'User-Agent': 'Mmdghgilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36 OPR/71.0.3770.317'
+        "Cache-Control":"max-age=0",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "same-origin",
+        "Sec-Fetch-User": "?1",
+        'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36 OPR/71.0.3770.441"
         }
     frbs=Firebase.Firebase()
     
@@ -70,11 +80,13 @@ class Scraper:
 
     def __init__(self):
         s=self.s = requests.Session()
-        r=self.r = s.get(self.baseUrl +"/cep-telefonu-modeller/ikinci-el?pagingSize=50"+"&sorting=date_desc",headers=self.headers, timeout=None)
         self.s.headers=self.headers
+        r=self.r = s.get(self.baseUrl +"/cep-telefonu-modeller/ikinci-el?pagingSize=50"+"&sorting=date_desc", timeout=None) 
         print( 'get: ', r.status_code)
         soup=self.soup = BeautifulSoup(r.text, 'html.parser')
 
+
+        self.subCategs=soup.find("div",id="searchCategoryContainer").find_all("li")#phone models
         self.pageCount= int(soup.find("p", class_="mbdef").text.split()[1].replace(".",""))
         self.listingCount=int(soup.find("div", class_="result-text").find_all("span")[1].text.split()[0].replace(".",""))
         
@@ -95,10 +107,10 @@ class Scraper:
             #_thread.start_new_thread( self.scrape,(soup,level) )
             return
 
-        subCategs=soup.find("div",id="searchCategoryContainer").find_all("li")#phone models
-        for phoneModel in subCategs:
+        for phoneModel in self.subCategs:
             self.requestUrl=phoneModel.a.get("href")
-            r = self.s.get(self.baseUrl +self.requestUrl ,headers=self.headers, timeout=None)
+            self.s.headers.update({'Referer': self.r.url})
+            r = self.s.get(self.baseUrl +self.requestUrl , timeout=None)
             print(level*"\t"+ 'crawling: ', phoneModel.text.replace("\n",""), " with url:",phoneModel.a.get("href"))
             soup = BeautifulSoup(r.text, 'html.parser')
             self.crawl(soup,level+1)
@@ -117,8 +129,10 @@ class Scraper:
         listingCount=int(soup.find("div", class_="result-text").find_all("span")[1].text.split()[0].replace(".",""))
         pageCount= 20 if int(listingCount)//50 >=20 else int(listingCount)//50 #çünkü az ilanlı kategoride sonraki sayfa butonları yok      
         i=0
-        while i<=pageCount:         
-            r = self.s.get(self.baseUrl+self.requestUrl+"&" +getOffset(i),headers=self.headers, timeout=None)
+        while i<=pageCount:
+            randWait()    
+            self.s.headers.update({'Referer': self.r.url})    
+            r = self.s.get(self.baseUrl+self.requestUrl+"&" +getOffset(i),timeout=None)
             print(level*"\t"+"scraping page: ",str(i)+ "/"+str(pageCount))  
             #FileIO.saveResponse("bepsi.html",r.text)
             i+=1
@@ -127,15 +141,16 @@ class Scraper:
             
             links= soup.find_all("tr")
             
-            file=open("ekmek.txt","a", encoding="utf8")
+            file=open("aekmek.txt","a", encoding="utf8")
             #e: her bir ilan elementi, data-id attr'sine sahip her bir <tr>
             for e in links:
                 if e.has_attr("data-id") is not True: continue
                 ilan=self._scrapeListing(soup,e)
                 if self.frbs.isExists(ilan.listingId) is True: continue
+                randWait()
                 self.deepScrape(ilan)
                 #ilan.print()
-                self.frbs.AddListing(ilan)
+                #self.frbs.AddListing(ilan)
                 #file.write(ilan.listingId+"\n")
                 file.write(ilan.getCSV()+"\n")
                 
@@ -149,6 +164,7 @@ class Scraper:
         r = self.s.get(self.baseUrl+self.listingUrl+ilan.listingId+ "/detay",headers=self.headers, timeout=None)
         print("page: ",r.status_code)  
         if r.status_code == 429: raise requests.exceptions.MissingSchema
+        if r.status_code == 410: return
         soup = BeautifulSoup(r.text, 'html.parser')
         info= soup.find("div",class_="classifiedInfo")
     
