@@ -6,6 +6,7 @@
 *.html
 ekmek.txt
 *.json
+*.exe
 ### Data ###
 *.csv
 *.dat
