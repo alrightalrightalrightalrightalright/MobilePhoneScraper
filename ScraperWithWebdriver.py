@@ -3,7 +3,21 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from bs4 import BeautifulSoup
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.support.ui import WebDriverWait
+import random
+from selenium.common.exceptions import NoSuchElementException
+import Firebase
 
+import time
+import Sahbndnİlan
+randWait= lambda : time.sleep( random.randrange(800,3500)/1000)
+frbs=Firebase.Firebase()
+
+
+#TODO: ilanların bulunduğu sayfada id alıp firebasede kontrol ettikten sonra 
+
+
+#tab methotd
 def waitForLoad(driver):
     '''waits for next page to load'''
     oldTitle= driver.title
@@ -18,76 +32,155 @@ def closeTab(driver):
     driver.close()
     driver.switch_to.window(oldHandle)
 
+def hoverOn(element, driver):
+    ActionChains(driver).move_to_element(element).perform()
+
+def click(element,driver):
+    driver.execute_script("window.scrollTo(0, 0)") 
+    driver.execute_script("window.scrollTo(0, 180)") 
+    hoverOn(element,driver)
+    element.click()
+
+
+#get page component
 def getListingCountFromPage(driver):
     return int(driver.find_element_by_xpath('//div[@class="result-text"]/span').text.split()[0].replace(".",""))
 
 def getListingCount(element):
     return int(element.find_element_by_tag_name("span").text.replace("(","").replace(")",""))
 
+def getSubCategs(driver):
+    categs= driver.find_elements_by_xpath("//*[@id='searchCategoryContainer']//*/ul/li") 
+    random.shuffle(categs)
+    return  categs
+
+def getCategByIndex(i,driver):
+    for j,categ in enumerate (getSubCategs(driver),start=0):    
+        if i == j : 
+            #driver.execute_script('var topPos=document.getElementsByClassName("cl")['+str(i)+'].offsetTop;document.getElementsByClassName("jspContainer")[0].scrollTop=topPos-10;') 
+            ActionChains(driver).move_to_element(categ).perform()
+            driver.execute_script("window.scrollTo(0, 180)") 
+            return categ
+
+
+
+#scraping
+def scrapeListing(driver):
+    start_time = time.time()
+
+    driver.execute_script("window.scrollTo(0, 180)") 
+    driver.execute_script("window.scrollTo(0, 190)") 
+
+    infoList =driver.find_elements_by_xpath('//*[@class="classifiedInfoList"]/li')
+    infoList.pop()  #last element is empty: ""
+    ilan= Sahbndnİlan.Shbndnİlan()
+    for inf in infoList:
+        key=inf.text.split("\n")[0]
+        val= inf.text.split("\n")[1].strip()
+        ilan.data[key]=val
+        #for field in ilan.fields:
+    print(ilan.data)
+    print("--- %s seconds ---" % (time.time() - start_time))
+    frbs.AddListing(ilan)
+    return
+def checkIfExists(driver):
+    return
+    
 def travelPages(driver):
     '''travels all the available listing pages one by one.'''
     try:
+        i=0
         while True:
-            nextpageBtn = driver.find_element_by_xpath('//a[@title="Sonraki"]')#NoSuchElementException
+            try:
+                nextpageBtn = driver.find_element_by_xpath('//a[@title="Sonraki"]')#NoSuchElementException
+            except NoSuchElementException :
+                nextpageBtn= None
+            except Exception:
+                print("yeah reall kill yourself")
+                nextpageBtn= None
+            except BaseException :
+                print("suicide")
+                nextpageBtn= None
             listings = driver.find_elements_by_xpath('//*[@id="searchResultsTable"]/tbody/tr[@data-id]')
+            random.shuffle(listings)
             for e in listings:
+                hoverOn(e,driver)
+                ActionChains(driver).move_to_element(e).perform()
                 print(e.find_element_by_tag_name("a").get_attribute("href"))
-                #driver.execute_script("window.open('"+ e.find_element_by_tag_name("a").get_attribute("href")+  "');")
-                #yalandan dataları almışız...
-                #closeTab(driver)
+                
+                #checkIfExists(driver)
+
+                oldHandle= driver.current_window_handle
+                driver.execute_script("window.open('"+ e.find_element_by_tag_name("a").get_attribute("href")+  "');")
+                driver.switch_to.window(driver.window_handles[1])
+                scrapeListing(driver)
+                driver.close()
+                driver.switch_to.window(oldHandle)##???? gerekli mi
+
+            i=i+1
+            if nextpageBtn is None or i >1: return
             driver.execute_script("arguments[0].click();", nextpageBtn) 
             waitForLoad(driver)
             
     except Exception as ex:
+        print("kactım bn", str(e))
+        return
         raise ex
 
-def getSubCategs(driver):
-    return  driver.find_elements_by_xpath("//*[@id='searchCategoryContainer']//*/ul/li")
-
+#page navigation
 def backOneLevel(driver):
     #TODO: fix this with decorator
     oldTitle= driver.title   
+    driver.execute_script("window.scrollTo(0, 0)") 
     if len(getSubCategs(driver)) <=0:
         driver.find_element_by_xpath('//*[@id="search_cats"]/ul/li[4]/div/a').click()
     else:
         driver.find_element_by_xpath('//*[@id="search_cats"]/ul/li[3]/div/a').click()
-    while page_title_changed(oldTitle,driver) is False:pass
-def getCategByIndex(i,driver):
-    for j,categ in enumerate (getSubCategs(driver),start=0):    
-        if i == j : 
-            ActionChains(driver).move_to_element(categ).perform()
-            return categ
+    WebDriverWait(driver, 10).until(lambda driver: driver.title != oldTitle)
+
+    #while page_title_changed(oldTitle,driver) is False:pass
+
+
+
+
+
+
 
 options = Options()
 #options.headless = True
 options.page_load_strategy = 'eager'
 driver = webdriver.Chrome("./chromedriver.exe",options=options)
-driver.get("https://www.sahibinden.com/cep-telefonu-modeller/ikinci-el?pagingSize=50")
+driver.get("https://www.sahibinden.com/cep-telefonu-modeller/ikinci-el?date=1day&pagingSize=50&sorting=date_desc")
+
 print("ytararararararar")
-
-
-
+driver.find_element_by_xpath('//*[@id="closeCookiePolicy"] ').click()
 
 #subCategs =driver.find_elements_by_xpath("//*[@id='searchCategoryContainer']//*/ul/li")
 #def getNextCateg(driver,categ):
 
 def hoxx(driver):
+    randWait()
     if getListingCountFromPage(driver) <=1000 or len(getSubCategs(driver)) <=0 :
-        #travelPages(driver)
-        print("yalandan sayfalar tarandı...")
+        travelPages(driver)
+        print(driver.title + "yalandan sayfalar tarandı...")
         return
     #subCategs =driver.find_elements_by_xpath("//*[@id='searchCategoryContainer']//*/ul/li")
-    #categ = getNextCateg(driver,categ)
     for i in range(0,len(getSubCategs(driver))):
     #for categ in subCategs:
         categ = getCategByIndex(i,driver)
-        if categ is None:
-            print("yalandan sayfalaran tanadı yaprak düğüm")
+        if categ is None or categ.text.find("Diğer") !=-1 or categ.text.find("Toplu Satış") !=-1 : 
+            continue
         else:
             oldTitle=driver.title
-            driver.execute_script('var topPos=document.getElementsByClassName("cl")['+str(i)+'].offsetTop;document.getElementsByClassName("jspContainer")[0].scrollTop=topPos-10;') 
-            categ.find_element_by_tag_name("a").click()  
-            while page_title_changed(oldTitle,driver) is False:pass
+            #driver.execute_script("arguments[0].click();",getCategByIndex(i,driver).find_element_by_tag_name("a"))
+            nextSubCat=getCategByIndex(i,driver).find_element_by_tag_name("a")
+            if nextSubCat.text == "" or nextSubCat.text == "Diğer " or nextSubCat.text == "Toplu Satış": continue # skip top bottom because send keys
+            drag= driver.find_element_by_xpath('//*[@id="searchCategoryContainer"]')
+            drag.send_keys(Keys.DOWN)
+            drag.send_keys(Keys.UP)          
+            click(nextSubCat,driver)
+            WebDriverWait(driver, 10).until(lambda driver: driver.title != oldTitle)
+            #while page_title_changed(oldTitle,driver) is False:pass
         hoxx(driver)     
         backOneLevel(driver)
         
@@ -101,10 +194,6 @@ subModel=driver.find_element_by_xpath('//*[@id="search_cats"]/ul/li[4]/div/a').g
 
 # TODO: ÇEREZ ÇARPIYA TIKLA
 
-
-
-listingCountCateg=int(bepsi[3].find_element_by_tag_name("span").text.replace("(","").replace(")",""))
-listingCount=driver.find_element_by_xpath('//div[@class="result-text"]/span').text.split()[0].replace(".","")
 
 assert "No results found." not in driver.page_source
 driver.close()

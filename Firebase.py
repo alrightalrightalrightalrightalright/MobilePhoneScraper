@@ -24,7 +24,8 @@ class Firebase:
     uptLastRun= lambda self: db.reference().child("!Last Run").set(getTime())
 
     def AddListing(self, obj):
-        self.ref.child(obj.listingId).set(obj.getCSV())
+        #self.ref.child(obj.listingId).set(obj.getCSV())
+        self.ref.child(obj.data["İlan No"]).set(obj.getCSV())
         self.incrCount()
         self.uptLastRun()
 

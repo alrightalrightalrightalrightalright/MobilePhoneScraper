@@ -106,7 +106,7 @@ class Scraper:
             self.scrape(soup,level)
             #_thread.start_new_thread( self.scrape,(soup,level) )
             return
-
+        random.shuffle(self.subCategs)    
         for phoneModel in self.subCategs:
             self.requestUrl=phoneModel.a.get("href")
             self.s.headers.update({'Referer': self.r.url})
@@ -129,7 +129,7 @@ class Scraper:
         listingCount=int(soup.find("div", class_="result-text").find_all("span")[1].text.split()[0].replace(".",""))
         pageCount= 20 if int(listingCount)//50 >=20 else int(listingCount)//50 #çünkü az ilanlı kategoride sonraki sayfa butonları yok      
         i=0
-        while i<=pageCount:
+        while i<=1:#i<=pageCount
             randWait()    
             self.s.headers.update({'Referer': self.r.url})    
             r = self.s.get(self.baseUrl+self.requestUrl+"&" +getOffset(i),timeout=None)
@@ -143,15 +143,16 @@ class Scraper:
             
             file=open("aekmek.txt","a", encoding="utf8")
             #e: her bir ilan elementi, data-id attr'sine sahip her bir <tr>
-            for e in links:
+            random.shuffle(links)
+            for i,e in enumerate (links):
+                if i >=random.randrange(3,9): return
                 if e.has_attr("data-id") is not True: continue
                 ilan=self._scrapeListing(soup,e)
                 if self.frbs.isExists(ilan.listingId) is True: continue
                 randWait()
                 self.deepScrape(ilan)
                 #ilan.print()
-                #self.frbs.AddListing(ilan)
-                #file.write(ilan.listingId+"\n")
+                self.frbs.AddListing(ilan)
                 file.write(ilan.getCSV()+"\n")
                 
             file.close()  
