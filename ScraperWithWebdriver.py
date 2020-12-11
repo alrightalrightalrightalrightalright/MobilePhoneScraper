@@ -6,8 +6,10 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 import random
 from selenium.common.exceptions import NoSuchElementException
-import Firebase
+from selenium.webdriver.support import expected_conditions as EC
 
+import Firebase
+import sys
 import time
 import Sahbndnİlan
 randWait= lambda : time.sleep( random.randrange(800,3500)/1000)
@@ -15,7 +17,9 @@ frbs=Firebase.Firebase()
 
 
 #TODO: ilanların bulunduğu sayfada id alıp firebasede kontrol ettikten sonra 
-
+#TOFIX: alt kategori seçerken yukarıdaki bi ilana yapılan hover
+#sonucu elementin yarısı gözüküyor, tıkalyamıyor. other element woul
+#receive the ciclk, ElementClickInterceptedException
 
 #tab methotd
 def waitForLoad(driver):
@@ -39,6 +43,9 @@ def click(element,driver):
     driver.execute_script("window.scrollTo(0, 0)") 
     driver.execute_script("window.scrollTo(0, 180)") 
     hoverOn(element,driver)
+    #driver.execute_script("window.scrollTo(0, 0)") 
+    driver.execute_script("window.scrollTo(0, 180)") 
+  
     element.click()
 
 
@@ -106,12 +113,15 @@ def travelPages(driver):
             for e in listings:
                 hoverOn(e,driver)
                 ActionChains(driver).move_to_element(e).perform()
-                print(e.find_element_by_tag_name("a").get_attribute("href"))
-                
+                link=e.find_element_by_tag_name("a").get_attribute("href")
+                print(link)
+
+                #listingId=link.split("-")[len(link.split("-"))-1].split("/")[0]
+                #if frbs.isExists(listingId): continue
                 #checkIfExists(driver)
 
                 oldHandle= driver.current_window_handle
-                driver.execute_script("window.open('"+ e.find_element_by_tag_name("a").get_attribute("href")+  "');")
+                driver.execute_script("window.open('"+ link+  "');")
                 driver.switch_to.window(driver.window_handles[1])
                 scrapeListing(driver)
                 driver.close()
@@ -123,22 +133,20 @@ def travelPages(driver):
             waitForLoad(driver)
             
     except Exception as ex:
-        print("kactım bn", str(e))
+        print("amanın. kritik hata.", str(e))
         return
         raise ex
 
 #page navigation
 def backOneLevel(driver):
     #TODO: fix this with decorator
-    oldTitle= driver.title   
+    firstElement=driver.find_element_by_xpath('//*[@class="searchResultsItem     "]')
     driver.execute_script("window.scrollTo(0, 0)") 
     if len(getSubCategs(driver)) <=0:
         driver.find_element_by_xpath('//*[@id="search_cats"]/ul/li[4]/div/a').click()
     else:
         driver.find_element_by_xpath('//*[@id="search_cats"]/ul/li[3]/div/a').click()
-    WebDriverWait(driver, 10).until(lambda driver: driver.title != oldTitle)
-
-    #while page_title_changed(oldTitle,driver) is False:pass
+    WebDriverWait(driver, 10).until(EC.staleness_of(firstElement))
 
 
 
@@ -147,10 +155,10 @@ def backOneLevel(driver):
 
 
 options = Options()
-#options.headless = True
+options.headless = True
 options.page_load_strategy = 'eager'
 driver = webdriver.Chrome("./chromedriver.exe",options=options)
-driver.get("https://www.sahibinden.com/cep-telefonu-modeller/ikinci-el?date=1day&pagingSize=50&sorting=date_desc")
+driver.get("https://www.sahibinden.com/cep-telefonu-modeller/ikinci-el?date=1day&pagingSize=50")
 
 print("ytararararararar")
 driver.find_element_by_xpath('//*[@id="closeCookiePolicy"] ').click()
@@ -174,13 +182,14 @@ def hoxx(driver):
             oldTitle=driver.title
             #driver.execute_script("arguments[0].click();",getCategByIndex(i,driver).find_element_by_tag_name("a"))
             nextSubCat=getCategByIndex(i,driver).find_element_by_tag_name("a")
-            if nextSubCat.text == "" or nextSubCat.text == "Diğer " or nextSubCat.text == "Toplu Satış": continue # skip top bottom because send keys
+            if nextSubCat.text == "" or nextSubCat.text == "Diğer" or nextSubCat.text == "Toplu Satış": continue # skip top bottom because send keys
             drag= driver.find_element_by_xpath('//*[@id="searchCategoryContainer"]')
             drag.send_keys(Keys.DOWN)
             drag.send_keys(Keys.UP)          
+            firstElement=driver.find_element_by_xpath('//*[@class="searchResultsItem     "]')
             click(nextSubCat,driver)
-            WebDriverWait(driver, 10).until(lambda driver: driver.title != oldTitle)
-            #while page_title_changed(oldTitle,driver) is False:pass
+            #WebDriverWait(driver, 10).until(lambda driver: driver.title != oldTitle)
+            WebDriverWait(driver, 10).until(EC.staleness_of(firstElement))
         hoxx(driver)     
         backOneLevel(driver)
         
